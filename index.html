@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Onboarding File Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f4f4f4;
+      margin: 0;
+    }
+
+    .container {
+      width: 80%;
+      max-width: 600px;
+      padding: 20px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      position: relative;
+    }
+
+    .container img {
+      max-width: 150px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .upload-area {
+      width: 100%;
+      height: 200px;
+      border: 2px dashed #24468E;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      color: #000;
+    }
+
+    .upload-area:hover {
+      background-color: #ececec;
+    }
+
+    .upload-area.disabled {
+      background-color: #f0f0f0;
+      border-color: #aaa;
+      color: #aaa;
+      cursor: not-allowed;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .upload-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #24468E;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .upload-btn:hover {
+      background-color: #1d3c78;
+    }
+
+    .upload-btn:disabled {
+      background-color: #ddd;
+      color: #999;
+      cursor: not-allowed;
+    }
+
+    .file-info {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .file-info button {
+      padding: 10px 20px;
+      background-color: #24468E;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .file-info button:hover {
+      background-color: #1d3c78;
+    }
+
+    #file-info {
+      display: none;
+    }
+
+    /* Progress bar styles */
+    #progress-container {
+      width: 100%;
+      background-color: #eee;
+      border-radius: 4px;
+      margin-top: 20px;
+      display: none;
+      height: 15px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background-color: #24468E;
+      transition: width 0.1s linear;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="logo.svg" alt="Logo" />
+    <h1>Upload New Hire Onboarding File</h1>
+
+    <div id="upload-area" class="upload-area">
+      <span>Drag & drop an .xlsx file here or click to select a file</span>
+    </div>
+
+    <input type="file" id="file-upload" accept=".xlsx" />
+    <button id="upload-btn" class="upload-btn" onclick="triggerFileUpload()">Browse Files</button>
+
+    <div id="progress-container">
+      <div id="progress-bar"></div>
+    </div>
+
+    <div id="file-info" class="file-info">
+      <p>File uploaded successfully!</p>
+      <button onclick="resetUpload()">Upload Another File</button>
+    </div>
+  </div>
+
+  <script>
+    const uploadArea = document.getElementById('upload-area');
+    const fileUpload = document.getElementById('file-upload');
+    const uploadBtn = document.getElementById('upload-btn');
+    const fileInfo = document.getElementById('file-info');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+
+    let progressInterval;
+
+    // Trigger file input when the area is clicked
+    uploadArea.addEventListener('click', () => {
+      if (!uploadArea.classList.contains('disabled')) {
+        fileUpload.click();
+      }
+    });
+
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (!uploadArea.classList.contains('disabled')) {
+        uploadArea.style.backgroundColor = '#ececec';
+      }
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      if (!uploadArea.classList.contains('disabled')) {
+        uploadArea.style.backgroundColor = '#f9f9f9';
+      }
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (!uploadArea.classList.contains('disabled')) {
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith('.xlsx')) {
+          uploadFile(file);
+        } else {
+          alert('Please upload a valid .xlsx file.');
+        }
+      }
+    });
+
+    fileUpload.addEventListener('change', handleFileSelect);
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file && file.name.endsWith('.xlsx')) {
+        uploadFile(file);
+      } else {
+        alert('Please upload a valid .xlsx file.');
+      }
+    }
+
+    function uploadFile(file) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Disable upload area and button
+      uploadArea.classList.add('disabled');
+      uploadBtn.disabled = true;
+
+      // Show progress container and start fake progress
+      progressContainer.style.display = 'block';
+      startProgress();
+
+      fetch('/upload', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.text())
+      .then(data => {
+        console.log('File uploaded:', data);
+        completeProgress();
+        fileInfo.style.display = 'block';
+      })
+      .catch(error => {
+        console.error('Error uploading file:', error);
+        alert('There was an error uploading the file.');
+        stopProgress();
+        // Re-enable if error
+        uploadArea.classList.remove('disabled');
+        uploadBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      });
+    }
+
+    function triggerFileUpload() {
+      if (!uploadArea.classList.contains('disabled')) {
+        fileUpload.click();
+      }
+    }
+
+    function resetUpload() {
+      uploadArea.classList.remove('disabled');
+      uploadBtn.disabled = false;
+      fileUpload.value = '';
+      fileInfo.style.display = 'none';
+      progressContainer.style.display = 'none';
+      progressBar.style.width = '0%';
+    }
+
+    function startProgress() {
+      let width = 0;
+      progressBar.style.width = '0%';
+
+      // Simulate progress: increment until 90%, wait for response, then jump to 100%
+      progressInterval = setInterval(() => {
+        if (width < 90) {
+          width += 2;
+          progressBar.style.width = width + '%';
+        }
+      }, 100);
+    }
+
+    function completeProgress() {
+      // Jump to 100%
+      clearInterval(progressInterval);
+      progressBar.style.width = '100%';
+      // Optionally hide after a delay
+      setTimeout(() => {
+        progressContainer.style.display = 'none';
+      }, 500);
+    }
+
+    function stopProgress() {
+      clearInterval(progressInterval);
+      progressBar.style.width = '0%';
+    }
+  </script>
+</body>
+</html>
